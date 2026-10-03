@@ -32,11 +32,15 @@ Put media in `registry/media/<slug>/` (up to 3 files, 5 MB each; gif, png, webp 
 
 ## 2. Open a pull request
 
-The **claudemodz check** fetches your plugin at `sha`, runs `claude plugin validate` and its tests, and comments with what it can do: files, programs, network, secrets, model usage, and whether it can act for the user. If the plugin can do something risky — write files, run programs, use the network, read secrets, act for the user, rewrite the session, control other mods, or ship settings hooks or MCP servers — a maintainer reviews it and adds `permissions-approved`.
+The **claudemodz review** reads your listing, fetches the plugin at `sha` (which must be on `ref`), runs `claude plugin validate`, and comments with what it can do: files, programs, network, secrets, model usage, whether it can act for the user, and any settings hooks, MCP servers, LSP servers or monitors it ships. Your plugin's own tests run too and appear as an informational badge.
+
+A listing pull request may only change `registry/listings/` and `registry/media/`. Never edit `registry/generated/` or `.claude-plugin/` — the publish workflow writes those.
+
+If the plugin can do something risky — write files, run programs, use the network, read secrets, act for the user, rewrite the session, control other mods, or ship code that runs on its own (settings hooks, MCP/LSP servers, monitors) — the pull request gets `needs-permission-review` and can merge only after a maintainer **approves its latest commit**. Pushing again needs a new approval.
 
 ## 3. Updates
 
-Open a PR that changes `sha`. The check posts what changed since the reviewed version. Listing maintainers can approve their own updates unless they add risky permissions.
+Open a PR that changes `sha`. The review posts what changed since the reviewed version, including any change to the source repository or maintainers. Pointing a listing at a different repository always needs a maintainer's approval.
 
 ## Renaming
 

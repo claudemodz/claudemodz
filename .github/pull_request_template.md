@@ -5,4 +5,4 @@
 - [ ] Mods that draw in the interface include a screenshot or GIF under `registry/media/<slug>/`
 - [ ] I am an author of this plugin, or I've credited its authors in `authors`
 
-The claudemodz check will comment with what the plugin can do. New risky permissions need a maintainer to add `permissions-approved`.
+The claudemodz review will comment with what the plugin can do. New risky permissions need a maintainer to approve the latest commit.

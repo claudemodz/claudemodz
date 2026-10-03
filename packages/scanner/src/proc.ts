@@ -3,9 +3,13 @@ import { spawn } from 'node:child_process'
 export type ProcResult = { code: number; stdout: string; stderr: string }
 
 /** Runs a command and resolves with its exit code and output; never rejects on a non-zero exit. */
-export function run(cmd: string, args: readonly string[], options: { cwd?: string; timeoutMs?: number } = {}): Promise<ProcResult> {
+export function run(
+  cmd: string,
+  args: readonly string[],
+  options: { cwd?: string; timeoutMs?: number; env?: NodeJS.ProcessEnv } = {},
+): Promise<ProcResult> {
   return new Promise(resolve => {
-    const child = spawn(cmd, args, { cwd: options.cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(cmd, args, { cwd: options.cwd, env: options.env, stdio: ['ignore', 'pipe', 'pipe'] })
     let stdout = ''
     let stderr = ''
     const timer = setTimeout(() => child.kill('SIGKILL'), options.timeoutMs ?? 300_000)
@@ -20,4 +24,11 @@ export function run(cmd: string, args: readonly string[], options: { cwd?: strin
       resolve({ code: code ?? 1, stdout, stderr })
     })
   })
+}
+
+/** The environment without tokens, secrets or Actions runtime credentials: for running untrusted code. */
+export function scrubbedEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(env).filter(([name]) => !/(TOKEN|SECRET|PASSWORD|_KEY)$/i.test(name) && !name.startsWith('ACTIONS_')),
+  )
 }

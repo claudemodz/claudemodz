@@ -1,0 +1,4 @@
+# Changes to the pipeline and its workflows need a maintainer.
+/.github/ @snagrecha
+/packages/ @snagrecha
+/docs/ @snagrecha

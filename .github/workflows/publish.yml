@@ -1,24 +1,28 @@
 name: publish
+# Reconciles the registry with its listings: rescans anything whose scan is missing, for another sha or
+# from another Claude Code version, keeps the previous reviewed version of anything that fails (and then
+# fails this run), removes only listings whose YAML was deleted, and rewrites the marketplace.
 on:
   push:
     branches: [main]
-    paths: ['registry/listings/**', 'registry/media/**']
+    paths: ['registry/**', '.claude-plugin/**']
   workflow_dispatch:
     inputs:
       all:
-        description: Rescan every listing (e.g. after bumping Claude Code)
+        description: Rescan every listing even if its scan looks current
         type: boolean
         default: false
 permissions:
   contents: write
-concurrency: publish
+concurrency:
+  group: publish
+  cancel-in-progress: false
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -27,23 +31,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: npm install -g @anthropic-ai/claude-code@2.1.288
       - name: Scan and write the marketplace
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.all }}" = "true" ]; then
-            pnpm scanner publish --all
-          else
-            pnpm scanner publish --base "${{ github.event.before }}"
-          fi
-      - run: claude plugin validate .
+        id: publish
+        run: pnpm scanner publish ${{ inputs.all && '--all' || '' }}
+      - name: Validate the marketplace
+        if: always()
+        run: claude plugin validate .
       - name: Commit generated files
+        if: always()
         run: |
           git config user.name "claudemodz-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add registry/generated .claude-plugin/marketplace.json
           if git diff --cached --quiet; then echo "nothing to publish"; exit 0; fi
           git commit -m "chore: publish registry [skip ci]"
+          git pull --rebase origin main
           git push
-      - name: Notify the site
-        if: ${{ env.SYNC_URL != '' }}
-        env:
-          SYNC_URL: ${{ secrets.SYNC_URL }}
-        run: echo "site sync arrives in phase 3"

@@ -1,4 +1,4 @@
-import { run } from './proc'
+import { run, scrubbedEnv } from './proc'
 
 export type ValidateReport = { success: boolean; errors: string[]; warnings: string[]; notes: string[] }
 
@@ -43,7 +43,7 @@ export function testCountsOf(output: string): { passed: number; failed: number }
 }
 
 export async function runPluginTests(dir: string): Promise<{ passed: number; failed: number } | null> {
-  const result = await run('claude', ['plugin', 'test', dir], { timeoutMs: 300_000 })
+  const result = await run('claude', ['plugin', 'test', dir], { timeoutMs: 300_000, env: scrubbedEnv(process.env) })
   return testCountsOf(`${result.stdout}\n${result.stderr}`)
 }
 

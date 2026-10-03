@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -6,13 +6,16 @@ import { parseArgs } from 'node:util'
 import { parseListing, ScanResultSchema, type ScanResult } from '@claudemodz/schema'
 
 import { changedSlugsOf, checkListings, summarize } from './check'
+import { readContents } from './contents'
+import { githubApi } from './github'
+import { review, type WorkflowRun } from './review'
 import { renderComment } from './comment'
 import { validateEntries } from './market-validate'
 import { run } from './proc'
 import { publishRegistry } from './publish'
 import { scanPlugin } from './scan'
 import { fetchSource } from './source'
-import { claudeVersion } from './validate'
+import { claudeVersion, runPluginTests } from './validate'
 
 const root = process.cwd()
 
@@ -46,10 +49,11 @@ async function scanner(withTests: boolean) {
   }
 }
 
+/** Local preview of the review for contributors: no GitHub, no plugin tests. */
 async function check(base: string, out: string): Promise<number> {
   const slugs = changedSlugsOf(await changedFiles(base))
   const results = await checkListings(root, slugs, {
-    ...(await scanner(true)),
+    ...(await scanner(false)),
     baseScanOf: async slug => {
       const text = await gitShow(base, `registry/generated/${slug}.json`)
       const parsed = text === null ? null : ScanResultSchema.safeParse(JSON.parse(text))
@@ -78,15 +82,73 @@ async function publish(force: boolean): Promise<number> {
   return outcome.failed.length > 0 ? 1 : 0
 }
 
+/** Untrusted (pr-check): runs each changed listing's plugin tests with a scrubbed environment. */
+async function tests(base: string, out: string): Promise<number> {
+  const work = await mkdtemp(join(tmpdir(), 'claudemodz-tests-'))
+  const counts: Record<string, { passed: number; failed: number }> = {}
+  for (const slug of changedSlugsOf(await changedFiles(base))) {
+    const text = await readFile(join(root, `registry/listings/${slug}.yaml`), 'utf8').catch(() => null)
+    const parsed = text === null ? null : parseListing(text, `${slug}.yaml`)
+    if (!parsed?.ok) continue
+    const fetched = await fetchSource(parsed.listing.source, work)
+    if (!fetched.ok || !(await readContents(fetched.dir)).hasTests) continue
+    const result = await runPluginTests(fetched.dir)
+    if (result !== null) counts[slug] = result
+  }
+  await mkdir(out, { recursive: true })
+  await writeFile(join(out, 'tests.json'), `${JSON.stringify(counts)}\n`)
+  console.log(JSON.stringify(counts))
+  return 0
+}
+
+/** Trusted (review workflow, main's code): reviews the pull request a pr-check run belongs to. */
+async function runReview(runFile: string, testsFile: string | undefined): Promise<number> {
+  const repo = process.env.REPO
+  const token = process.env.GH_TOKEN
+  if (!repo || !token) throw new Error('REPO and GH_TOKEN are required')
+  const run = JSON.parse(await readFile(runFile, 'utf8')) as WorkflowRun
+  let testResults: unknown = null
+  if (testsFile) {
+    try {
+      testResults = JSON.parse(await readFile(testsFile, 'utf8'))
+    } catch {
+      testResults = null
+    }
+  }
+  const { fetch: fetchListing, scan } = await scanner(false)
+  const outcome = await review({
+    mainRoot: root,
+    run,
+    testResults,
+    api: githubApi(repo, token),
+    deps: {
+      fetch: fetchListing,
+      scan,
+      licenseOf,
+      validateEntry: async (listing, result) => (await validateEntries([{ listing, scan: result }])).get(listing.slug) ?? [],
+    },
+  })
+  console.log(outcome === null ? 'no pull request matches this run' : `PR #${outcome.pr}: ${outcome.state}`)
+  return 0
+}
+
 async function main(): Promise<number> {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { base: { type: 'string' }, out: { type: 'string', default: 'check-results' }, all: { type: 'boolean', default: false } },
+    options: {
+      base: { type: 'string' },
+      out: { type: 'string', default: 'check-results' },
+      all: { type: 'boolean', default: false },
+      run: { type: 'string' },
+      tests: { type: 'string' },
+    },
   })
   const command = positionals[0]
   if (command === 'check' && values.base) return check(values.base, values.out ?? 'check-results')
   if (command === 'publish') return publish(values.all ?? false)
-  console.error('usage: scanner check --base <ref> [--out <dir>] | scanner publish [--all]')
+  if (command === 'tests' && values.base) return tests(values.base, values.out ?? 'test-results')
+  if (command === 'review' && values.run) return runReview(values.run, values.tests)
+  console.error('usage: scanner check --base <ref> [--out <dir>] | tests --base <ref> [--out <dir>] | review --run <event.json> [--tests <tests.json>] | publish [--all]')
   return 2
 }
 
