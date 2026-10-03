@@ -1,0 +1,1 @@
+{ "name": "standard", "version": "1.0.0", "description": "Reads a file through a helper.", "author": { "name": "fixture" }, "license": "MIT" }

@@ -40,3 +40,19 @@ export const PERMISSION_TEXT: Record<Permission, string> = {
   'draws-ui': 'Draws in the Claude Code interface',
   'external-code': 'Ships settings hooks or MCP servers that run their own commands',
 }
+
+export const CONTAINS = [
+  'mod',
+  'skill',
+  'agent',
+  'command',
+  'settings-hook',
+  'mcp',
+  'lsp',
+  'output-style',
+  'theme',
+  'workflow',
+  'monitor',
+] as const
+
+export type Contains = (typeof CONTAINS)[number]

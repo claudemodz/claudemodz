@@ -1,0 +1,1 @@
+{ "name": "mixed", "version": "0.2.0", "description": "Skill, agent, command, settings hook and MCP server.", "author": { "name": "fixture" }, "license": "Apache-2.0" }

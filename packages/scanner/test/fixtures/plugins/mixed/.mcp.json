@@ -1,0 +1,1 @@
+{ "mcpServers": { "fs": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"] }, "docs": { "type": "http", "url": "https://mcp.example.com/docs" } } }
