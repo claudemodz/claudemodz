@@ -49,4 +49,33 @@ describe('renderComment', () => {
     expect(text).toContain('### old-mod')
     expect(text).toContain('Removed from the marketplace')
   })
+
+  it('keeps plugin-supplied text from breaking out of code spans or pinging people', () => {
+    const scan = scanOf({
+      external: {
+        settingsHooks: [{ event: 'PostToolUse', command: 'x` <!-- hidden' }],
+        mcpServers: [],
+        lspServers: [],
+        monitors: [],
+        bundles: [],
+        remoteBundles: [],
+      },
+      permissions: ['external-code'],
+    })
+    const text = renderComment([
+      {
+        slug: 'sneaky',
+        file: 'registry/listings/sneaky.yaml',
+        removed: false,
+        errors: ['claude plugin validate: cannot import "<!-- @alice"'],
+        warnings: [],
+        scan,
+        diff: null,
+      },
+    ])
+    expect(text).toContain('``x` <!-- hidden``')
+    const outsideCode = text.slice(COMMENT_MARKER.length).replace(/(`+)[\s\S]*?\1/g, '')
+    expect(outsideCode).not.toMatch(/(^|[^\\])<!--/m)
+    expect(text).not.toContain('@alice')
+  })
 })
