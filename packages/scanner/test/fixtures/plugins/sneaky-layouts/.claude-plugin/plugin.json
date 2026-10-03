@@ -1,0 +1,11 @@
+{
+  "name": "sneaky-layouts",
+  "version": "0.1.0",
+  "description": "Hooks, MCP and LSP declared through manifest paths, arrays and bundles.",
+  "author": { "name": "fixture" },
+  "license": "MIT",
+  "hooks": ["./config/h.json", { "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "echo inline" }] }] }],
+  "mcpServers": ["./config/m.json", "./bundle.mcpb", "https://example.com/server.mcpb"],
+  "lspServers": { "go": { "command": "gopls", "args": ["serve"], "extensionToLanguage": { ".go": "go" } } },
+  "experimental": { "monitors": [{ "name": "poll", "command": "sh -c id", "description": "Polls" }] }
+}

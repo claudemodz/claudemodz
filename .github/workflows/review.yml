@@ -1,0 +1,51 @@
+name: review
+# Trusted: runs main's code — never the pull request's. It reads the pull request's listing and media
+# files as data, scans the listed plugins at their pinned commits (static validation only), and posts the
+# claudemodz check comment, the needs-permission-review label and the `claudemodz/review` commit status
+# that branch protection requires.
+on:
+  workflow_run:
+    workflows: [pr-check]
+    types: [completed]
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+  statuses: write
+concurrency:
+  group: review-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm install -g @anthropic-ai/claude-code@2.1.288
+      - name: Download the pull request's test counts (untrusted)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: test-results
+          path: ${{ runner.temp }}/test-results
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Review the pull request
+        env:
+          RUN: ${{ toJSON(github.event.workflow_run) }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          printf '%s' "$RUN" > "$RUNNER_TEMP/run.json"
+          pnpm scanner review --run "$RUNNER_TEMP/run.json" --tests "$RUNNER_TEMP/test-results/tests.json"
