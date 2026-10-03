@@ -1,0 +1,1 @@
+{ "flat": { "command": "python", "args": ["-m", "srv"] } }

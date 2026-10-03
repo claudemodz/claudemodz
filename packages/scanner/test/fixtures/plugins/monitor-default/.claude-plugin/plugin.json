@@ -1,0 +1,1 @@
+{ "name": "monitor-default", "version": "0.1.0", "description": "A monitor and an LSP server in their default files.", "author": { "name": "fixture" }, "license": "MIT" }

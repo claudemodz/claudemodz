@@ -168,4 +168,13 @@ describe('checkListings', () => {
       'slug: renaming old-name to new-name would uninstall it for everyone who has it; keep the old slug and change displayName instead',
     ])
   })
+
+  it('rejects a remote MCP bundle, which escapes the pinned commit', async () => {
+    const root = await registry({ 'registry/listings/remote.yaml': yamlOf('remote') })
+    const external = { settingsHooks: [], mcpServers: [], lspServers: [], monitors: [], bundles: [], remoteBundles: ['https://example.com/server.mcpb'] }
+    const [result] = await checkListings(root, ['remote'], depsOf({}, { external, permissions: ['external-code'], risk: 'elevated' }))
+    expect(result?.errors).toEqual([
+      "mcpServers: the remote bundle https://example.com/server.mcpb isn't pinned to the listing's commit; ship the bundle in the repository instead",
+    ])
+  })
 })

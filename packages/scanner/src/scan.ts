@@ -13,7 +13,7 @@ export async function scanPlugin(dir: string, meta: ScanMeta): Promise<ScanResul
   const notes = parseNotes(report.notes)
   const hasMod = contents.contains.includes('mod')
   const mod = hasMod ? { events: notes.events, calls: notes.calls, envReads: notes.envReads } : null
-  const hasExternal = contents.external.settingsHooks.length > 0 || contents.external.mcpServers.length > 0
+  const hasExternal = Object.values(contents.external).some(list => list.length > 0)
   const permissions = report.success ? permissionsOf({ events: notes.events, calls: notes.calls, hasExternal }) : []
   const tests = meta.withTests && contents.hasTests && report.success ? await runPluginTests(dir) : null
   return {

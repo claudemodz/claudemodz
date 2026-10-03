@@ -46,4 +46,11 @@ describe.runIf(hasClaude)('scanPlugin (real claude plugin validate)', () => {
     expect(scan.permissions).toEqual([])
     expect(scan.risk).toBe('standard')
   })
+
+  it('monitor-default: monitors and LSP servers are external code', async () => {
+    const scan = await scanPlugin(fixture('monitor-default'), meta('monitor-default'))
+    expect(scan.validator.success).toBe(true)
+    expect(scan.permissions).toEqual(['external-code'])
+    expect(scan.risk).toBe('elevated')
+  })
 })

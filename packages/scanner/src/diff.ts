@@ -16,6 +16,10 @@ export function externalKeys(scan: ScanResult): string[] {
   return [
     ...scan.external.settingsHooks.map(hook => `settings hook ${hook.event}: ${hook.command}`),
     ...scan.external.mcpServers.map(server => `MCP server ${server.name}: ${server.command ?? server.url ?? ''}`),
+    ...scan.external.lspServers.map(server => `LSP server ${server.name}: ${server.command}`),
+    ...scan.external.monitors.map(monitor => `monitor ${monitor.name}: ${monitor.command}`),
+    ...scan.external.bundles.map(bundle => `MCP bundle ${bundle}`),
+    ...scan.external.remoteBundles.map(url => `remote MCP bundle ${url}`),
   ]
 }
 

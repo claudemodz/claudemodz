@@ -1,0 +1,1 @@
+{ "api": { "command": "node", "args": ["server.js"] } }

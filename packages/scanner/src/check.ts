@@ -79,6 +79,9 @@ async function checkOne(root: string, slug: string, deps: CheckDeps, removedSour
   const scan = await deps.scan(fetched.dir, slug, listing.source.sha)
   result.scan = scan
   if (!scan.validator.success) result.errors.push(...scan.validator.errors.map(error => `claude plugin validate: ${error}`))
+  for (const url of scan.external.remoteBundles) {
+    result.errors.push(`mcpServers: the remote bundle ${url} isn't pinned to the listing's commit; ship the bundle in the repository instead`)
+  }
   const license = licenseError(listing, await deps.licenseOf(listing.source.repo), scan)
   if (license !== null) result.errors.push(license)
   if (scan.permissions.includes('draws-ui') && listing.media.length === 0) {

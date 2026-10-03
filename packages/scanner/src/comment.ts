@@ -33,6 +33,10 @@ function section(result: CheckedListing): string {
   }
   for (const hook of scan.external.settingsHooks) lines.push(`Settings hook on ${hook.event}: \`${hook.command}\``)
   for (const server of scan.external.mcpServers) lines.push(`MCP server ${server.name}: \`${server.command ?? server.url ?? ''}\``)
+  for (const server of scan.external.lspServers) lines.push(`LSP server ${server.name}: \`${server.command}\``)
+  for (const monitor of scan.external.monitors) lines.push(`Monitor ${monitor.name} (runs in the background): \`${monitor.command}\``)
+  for (const bundle of scan.external.bundles) lines.push(`MCP bundle: \`${bundle}\``)
+  for (const url of scan.external.remoteBundles) lines.push(`Remote MCP bundle: \`${url}\``)
   lines.push('', scan.tests === null ? 'Tests: none' : `Tests: ${scan.tests.passed} passed, ${scan.tests.failed} failed`)
 
   if (diff !== null) {

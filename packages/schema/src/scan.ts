@@ -18,6 +18,10 @@ export const ScanResultSchema = z.strictObject({
   external: z.strictObject({
     settingsHooks: z.array(z.strictObject({ event: z.string(), command: z.string() })),
     mcpServers: z.array(z.strictObject({ name: z.string(), command: z.string().nullable(), url: z.string().nullable() })),
+    lspServers: z.array(z.strictObject({ name: z.string(), command: z.string() })),
+    monitors: z.array(z.strictObject({ name: z.string(), command: z.string() })),
+    bundles: z.array(z.string()),
+    remoteBundles: z.array(z.string()),
   }),
   permissions: z.array(z.enum(PERMISSIONS)),
   risk: z.enum(['standard', 'elevated']),

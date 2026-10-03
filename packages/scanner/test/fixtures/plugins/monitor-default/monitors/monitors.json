@@ -1,0 +1,1 @@
+[{ "name": "tail", "command": "tail -f build.log", "description": "Build log" }]

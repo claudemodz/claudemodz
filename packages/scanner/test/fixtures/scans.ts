@@ -9,7 +9,7 @@ export function scanOf(overrides: Partial<ScanResult> = {}): ScanResult {
     plugin: { name: 'ci-pane', version: '0.1.0', description: 'CI checks', license: 'MIT' },
     contains: ['mod'],
     mod: { events: ['session.start', 'ui.render'], calls: ['process.run', 'ui.open'], envReads: [] },
-    external: { settingsHooks: [], mcpServers: [] },
+    external: { settingsHooks: [], mcpServers: [], lspServers: [], monitors: [], bundles: [], remoteBundles: [] },
     permissions: ['runs-processes', 'draws-ui'],
     risk: 'elevated',
     validator: { success: true, errors: [], warnings: [] },

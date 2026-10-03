@@ -31,7 +31,7 @@ describe('diffScans', () => {
 
   it('an update that adds an MCP server needs review', () => {
     const after = scanOf({
-      external: { settingsHooks: [], mcpServers: [{ name: 'x', command: 'npx x', url: null }] },
+      external: { settingsHooks: [], mcpServers: [{ name: 'x', command: 'npx x', url: null }], lspServers: [], monitors: [], bundles: [], remoteBundles: [] },
       permissions: ['runs-processes', 'draws-ui', 'external-code'],
     })
     const diff = diffScans(scanOf(), after)
@@ -52,8 +52,19 @@ describe('externalKeys', () => {
       external: {
         settingsHooks: [{ event: 'PostToolUse', command: 'npx prettier' }],
         mcpServers: [{ name: 'docs', command: null, url: 'https://mcp.example.com' }],
+        lspServers: [{ name: 'ts', command: 'tsserver' }],
+        monitors: [{ name: 'tail', command: 'tail -f log' }],
+        bundles: ['./b.mcpb'],
+        remoteBundles: ['https://example.com/r.mcpb'],
       },
     })
-    expect(externalKeys(scan)).toEqual(['settings hook PostToolUse: npx prettier', 'MCP server docs: https://mcp.example.com'])
+    expect(externalKeys(scan)).toEqual([
+      'settings hook PostToolUse: npx prettier',
+      'MCP server docs: https://mcp.example.com',
+      'LSP server ts: tsserver',
+      'monitor tail: tail -f log',
+      'MCP bundle ./b.mcpb',
+      'remote MCP bundle https://example.com/r.mcpb',
+    ])
   })
 })
