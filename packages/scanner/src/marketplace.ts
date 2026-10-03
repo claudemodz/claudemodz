@@ -1,6 +1,7 @@
 import type { Listing, ScanResult } from '@claudemodz/schema'
 
-export type MarketplaceEntryInput = { listing: Listing; scan: ScanResult | null }
+/** One listing as publish sees it: `listing` is null when its YAML no longer parses. */
+export type MarketplaceEntryInput = { slug: string; listing: Listing | null; scan: ScanResult | null }
 
 type PluginSource =
   | { source: 'github'; repo: string; ref: string; sha: string }
@@ -32,22 +33,37 @@ function sourceOf(listing: Listing): PluginSource {
     : { source: 'git-subdir', url: source.repo, path: source.path, ref: source.ref, sha: source.sha }
 }
 
+const isPublishable = (listing: Listing | null, scan: ScanResult | null): listing is Listing =>
+  listing !== null && scan !== null && scan.validator.success && scan.sha === listing.source.sha
+
+/**
+ * Builds the marketplace from the current listings. A listing whose YAML doesn't parse, or whose scan
+ * is missing, failed, or is for another sha, keeps its previously published entry (or stays out if it
+ * was never published) — only a listing that is gone from `entries` is removed.
+ */
 export function buildMarketplace(
   entries: readonly MarketplaceEntryInput[],
+  previous: Marketplace | null = null,
   renames: Record<string, string | null> = {},
 ): Marketplace {
-  const plugins = entries
-    .filter((entry): entry is { listing: Listing; scan: ScanResult } => entry.scan !== null && entry.scan.validator.success)
-    .sort((a, b) => a.listing.slug.localeCompare(b.listing.slug))
-    .map(({ listing, scan }) => ({
-      name: listing.slug,
-      displayName: listing.displayName,
-      description: listing.summary,
-      category: listing.category,
-      tags: listing.tags,
-      source: sourceOf(listing),
-      metadata: { claudemodz: { url: `https://claudemodz.com/m/${listing.slug}`, risk: scan.risk } },
-    }))
+  const before = new Map((previous?.plugins ?? []).map(plugin => [plugin.name, plugin]))
+  const plugins: MarketplaceEntry[] = []
+  for (const { slug, listing, scan } of [...entries].sort((a, b) => a.slug.localeCompare(b.slug))) {
+    if (isPublishable(listing, scan)) {
+      plugins.push({
+        name: listing.slug,
+        displayName: listing.displayName,
+        description: listing.summary,
+        category: listing.category,
+        tags: listing.tags,
+        source: sourceOf(listing),
+        metadata: { claudemodz: { url: `https://claudemodz.com/m/${listing.slug}`, risk: (scan as ScanResult).risk } },
+      })
+    } else {
+      const kept = before.get(slug)
+      if (kept !== undefined) plugins.push(kept)
+    }
+  }
   return {
     name: 'claudemodz',
     owner: { name: 'claudemodz', url: 'https://claudemodz.com' },

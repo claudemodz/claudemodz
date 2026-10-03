@@ -69,12 +69,11 @@ async function check(base: string, out: string): Promise<number> {
   return summary.failed ? 1 : 0
 }
 
-async function publish(base: string | undefined, all: boolean): Promise<number> {
-  const isAll = all || base === undefined || /^0+$/.test(base)
-  const slugs = isAll ? 'all' : changedSlugsOf(await changedFiles(base))
-  const outcome = await publishRegistry(root, slugs, await scanner(false))
+async function publish(force: boolean): Promise<number> {
+  const outcome = await publishRegistry(root, { force, claudeCodeVersion: await claudeVersion() }, await scanner(false))
   console.log(`published: wrote ${outcome.written.join(', ') || 'nothing'}; removed ${outcome.removed.join(', ') || 'nothing'}`)
-  return 0
+  for (const failure of outcome.failed) console.error(`::error::${failure.slug}: ${failure.error} (kept its previous version)`)
+  return outcome.failed.length > 0 ? 1 : 0
 }
 
 async function main(): Promise<number> {
@@ -84,8 +83,8 @@ async function main(): Promise<number> {
   })
   const command = positionals[0]
   if (command === 'check' && values.base) return check(values.base, values.out ?? 'check-results')
-  if (command === 'publish') return publish(values.base, values.all ?? false)
-  console.error('usage: scanner check --base <ref> [--out <dir>] | scanner publish (--base <sha> | --all)')
+  if (command === 'publish') return publish(values.all ?? false)
+  console.error('usage: scanner check --base <ref> [--out <dir>] | scanner publish [--all]')
   return 2
 }
 
