@@ -1,0 +1,51 @@
+name: pr-check
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths: ['registry/**']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm install -g @anthropic-ai/claude-code@2.1.288
+      - name: Check changed listings
+        run: pnpm scanner check --base origin/${{ github.base_ref }} --out check-results
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Record the PR number
+        if: always()
+        run: mkdir -p check-results && echo "${{ github.event.pull_request.number }}" > check-results/pr-number
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: check-results
+          path: check-results
+  permission-gate:
+    needs: check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: check-results
+          path: check-results
+      - name: Require maintainer approval for new risky permissions
+        env:
+          APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'permissions-approved') }}
+        run: |
+          needs=$(jq -r '.needsReview' check-results/summary.json)
+          if [ "$needs" = "true" ] && [ "$APPROVED" != "true" ]; then
+            echo "::error::New risky permissions need a maintainer to add the permissions-approved label."
+            exit 1
+          fi

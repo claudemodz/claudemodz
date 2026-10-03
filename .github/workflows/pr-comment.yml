@@ -1,0 +1,43 @@
+name: pr-comment
+on:
+  workflow_run:
+    workflows: [pr-check]
+    types: [completed]
+permissions:
+  actions: read
+  issues: write
+  pull-requests: write
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: check-results
+          path: check-results
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Post or update the check comment and label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pr=$(cat check-results/pr-number)
+          [[ "$pr" =~ ^[0-9]+$ ]] || { echo "bad PR number"; exit 1; }
+          body=check-results/comment.md
+          [ -f "$body" ] || echo "<!-- claudemodz-check -->
+          ## claudemodz check
+
+          The check did not finish. See the pr-check run for details." > "$body"
+          id=$(gh api "repos/$REPO/issues/$pr/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- claudemodz-check -->")) | .id' | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$body" > /dev/null
+          else
+            gh api "repos/$REPO/issues/$pr/comments" -F body=@"$body" > /dev/null
+          fi
+          if [ "$(jq -r '.needsReview' check-results/summary.json 2>/dev/null)" = "true" ]; then
+            gh api "repos/$REPO/issues/$pr/labels" -f 'labels[]=needs-permission-review' > /dev/null
+          else
+            gh api -X DELETE "repos/$REPO/issues/$pr/labels/needs-permission-review" > /dev/null 2>&1 || true
+          fi
