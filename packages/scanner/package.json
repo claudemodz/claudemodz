@@ -1,0 +1,10 @@
+{
+  "name": "@claudemodz/scanner",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@claudemodz/schema": "workspace:*",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  }
+}
