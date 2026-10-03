@@ -2,3 +2,4 @@
 export const SCHEMA_VERSION = 1
 
 export * from './listing'
+export * from './permissions'
