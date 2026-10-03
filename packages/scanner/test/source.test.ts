@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { fetchSource } from '../src/source'
-import { commitFixtureRepo } from './helpers/git'
+import { commitFixtureRepo, commitOnSideBranch } from './helpers/git'
 
 const work = () => mkdtemp(join(tmpdir(), 'claudemodz-work-'))
 
@@ -35,5 +35,18 @@ describe('fetchSource', () => {
     const { url, sha } = await commitFixtureRepo(['standard', 'mixed'])
     const fetched = await fetchSource({ type: 'git-subdir', repo: 'acme/mods', path: 'plugins/nope', ref: 'main', sha }, await work(), () => url)
     expect(fetched).toEqual({ ok: false, error: 'no plugin at plugins/nope in acme/mods' })
+  })
+
+  it('rejects a sha that is not on the listing\'s ref (e.g. pushed only to a fork or a side branch)', async () => {
+    const { url } = await commitFixtureRepo(['standard'])
+    const side = await commitOnSideBranch(url)
+    const fetched = await fetchSource({ type: 'github', repo: 'acme/standard', ref: 'main', sha: side }, await work(), () => url)
+    expect(fetched).toEqual({ ok: false, error: `commit ${side} is not on main in acme/standard` })
+  })
+
+  it('reports a ref that does not exist', async () => {
+    const { url, sha } = await commitFixtureRepo(['standard'])
+    const fetched = await fetchSource({ type: 'github', repo: 'acme/standard', ref: 'nope', sha }, await work(), () => url)
+    expect(fetched).toEqual({ ok: false, error: expect.stringContaining('ref nope not found in acme/standard') })
   })
 })
