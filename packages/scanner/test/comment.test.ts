@@ -8,13 +8,13 @@ describe('renderComment', () => {
   it('starts with the marker and summarizes a new elevated listing', () => {
     const scan = scanOf()
     const text = renderComment([
-      { slug: 'ci-pane', file: 'registry/listings/ci-pane.yaml', removed: false, errors: [], warnings: [], scan, diff: diffScans(null, scan) },
+      { slug: 'ci-pane', file: 'registry/listings/ci-pane.yaml', removed: false, errors: [], warnings: [], scan, diff: diffScans(null, scan), changes: [], sourceChanged: false },
     ])
     expect(text.startsWith(COMMENT_MARKER)).toBe(true)
     expect(text).toContain('### ci-pane')
     expect(text).toContain('Runs programs on your machine')
     expect(text).toContain('Draws in the Claude Code interface')
-    expect(text).toContain('needs a maintainer to add the `permissions-approved` label')
+    expect(text).toContain('needs a maintainer to approve the pull request on its latest commit')
     expect(text).toContain('Tests: 18 passed, 0 failed')
   })
 
@@ -33,6 +33,8 @@ describe('renderComment', () => {
         warnings: ['plugin tests failed: 1 of 18'],
         scan: after,
         diff: diffScans(before, after),
+        changes: [],
+        sourceChanged: false,
       },
     ])
     expect(text).toContain('❌ license: listing says MIT but the repository is Apache-2.0')
@@ -44,7 +46,7 @@ describe('renderComment', () => {
 
   it('notes removals', () => {
     const text = renderComment([
-      { slug: 'old-mod', file: 'registry/listings/old-mod.yaml', removed: true, errors: [], warnings: [], scan: null, diff: null },
+      { slug: 'old-mod', file: 'registry/listings/old-mod.yaml', removed: true, errors: [], warnings: [], scan: null, diff: null, changes: [], sourceChanged: false },
     ])
     expect(text).toContain('### old-mod')
     expect(text).toContain('Removed from the marketplace')
@@ -71,6 +73,8 @@ describe('renderComment', () => {
         warnings: [],
         scan,
         diff: null,
+        changes: [],
+        sourceChanged: false,
       },
     ])
     expect(text).toContain('``x` <!-- hidden``')

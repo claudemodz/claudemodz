@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Listing, ScanResult } from '@claudemodz/schema'
 
-import { changedSlugsOf, checkListings, summarize, type CheckDeps } from '../src/check'
+import { changedSlugsOf, checkListings, scopeErrors, summarize, type CheckDeps } from '../src/check'
 import { scanOf } from './fixtures/scans'
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
@@ -46,6 +46,7 @@ function depsOf(overrides: Partial<CheckDeps> = {}, scan: Partial<ScanResult> = 
     baseScanOf: async () => null,
     baseListingOf: async () => null,
     licenseOf: async () => 'MIT',
+    validateEntry: async () => [],
     ...overrides,
   }
 }
@@ -55,6 +56,25 @@ describe('changedSlugsOf', () => {
     expect(
       changedSlugsOf(['registry/listings/a.yaml', 'registry/media/b/demo.gif', 'README.md', 'registry/listings/a.yaml']),
     ).toEqual(['a', 'b'])
+  })
+})
+
+describe('scopeErrors', () => {
+  it('allows a PR that only changes listings and media, or only code', () => {
+    expect(scopeErrors(['registry/listings/a.yaml', 'registry/media/a/demo.gif'])).toEqual([])
+    expect(scopeErrors(['packages/scanner/src/check.ts', 'registry/listings/.gitkeep'])).toEqual([])
+  })
+
+  it('rejects a listing PR that also changes code or workflows', () => {
+    expect(scopeErrors(['registry/listings/a.yaml', '.github/workflows/pr-check.yml', 'packages/scanner/src/check.ts'])).toEqual([
+      'scope: a listing pull request may only change registry/listings and registry/media (it also changes .github/workflows/pr-check.yml, packages/scanner/src/check.ts)',
+    ])
+  })
+
+  it('rejects edits to files that only publish writes', () => {
+    expect(scopeErrors(['registry/generated/a.json', '.claude-plugin/marketplace.json'])).toEqual([
+      'scope: registry/generated and .claude-plugin are written by publish; remove registry/generated/a.json, .claude-plugin/marketplace.json from this pull request',
+    ])
   })
 })
 
@@ -176,5 +196,28 @@ describe('checkListings', () => {
     expect(result?.errors).toEqual([
       "mcpServers: the remote bundle https://example.com/server.mcpb isn't pinned to the listing's commit; ship the bundle in the repository instead",
     ])
+  })
+
+  it('reports marketplace validation errors for the listing', async () => {
+    const root = await registry({ 'registry/listings/claude-tools.yaml': yamlOf('claude-tools') })
+    const [result] = await checkListings(root, ['claude-tools'], depsOf({ validateEntry: async () => ['plugins[0].name: Plugin name "claude-tools" is reserved'] }))
+    expect(result?.errors).toEqual(['marketplace: plugins[0].name: Plugin name "claude-tools" is reserved'])
+  })
+
+  it('an update that points the listing at another repository needs review and says so', async () => {
+    const root = await registry({ 'registry/listings/moved.yaml': yamlOf('moved').replace('repo: claudemodz/mods', 'repo: someone/else') })
+    const before = { ...(await import('@claudemodz/schema')).parseListing(yamlOf('moved'), 'moved.yaml') }
+    const baseListing = before.ok ? before.listing : null
+    const results = await checkListings(root, ['moved'], depsOf({ baseListingOf: async () => baseListing, baseScanOf: async () => scanOf({ slug: 'moved', permissions: ['reads-files'], risk: 'standard' }) }))
+    expect(results[0]?.changes).toEqual(['Source changed from claudemodz/mods/plugins/moved to someone/else/plugins/moved'])
+    expect(summarize(results).needsReview).toBe(true)
+  })
+
+  it('an update that changes maintainers says so without needing review', async () => {
+    const root = await registry({ 'registry/listings/team.yaml': yamlOf('team').replace('maintainers: [snagrecha]', 'maintainers: [snagrecha, octocat]') })
+    const before = (await import('@claudemodz/schema')).parseListing(yamlOf('team'), 'team.yaml')
+    const results = await checkListings(root, ['team'], depsOf({ baseListingOf: async () => (before.ok ? before.listing : null), baseScanOf: async () => scanOf({ slug: 'team', permissions: ['reads-files'], risk: 'standard' }) }))
+    expect(results[0]?.changes).toEqual(['Maintainers changed from snagrecha to snagrecha, octocat'])
+    expect(summarize(results).needsReview).toBe(false)
   })
 })

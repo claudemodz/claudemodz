@@ -10,6 +10,10 @@ export type CheckedListing = {
   warnings: string[]
   scan: ScanResult | null
   diff: PermissionDiff | null
+  /** Changes to the listing itself since the reviewed version (source, maintainers, authors). */
+  changes: string[]
+  /** The listing now points at a different repository or path: always needs a maintainer's review. */
+  sourceChanged: boolean
 }
 
 export const COMMENT_MARKER = '<!-- claudemodz-check -->'
@@ -52,6 +56,7 @@ function section(result: CheckedListing): string {
   for (const url of scan.external.remoteBundles) lines.push(`Remote MCP bundle: ${inlineCode(url)}`)
   lines.push('', scan.tests === null ? 'Tests: none' : `Tests: ${scan.tests.passed} passed, ${scan.tests.failed} failed`)
 
+  if (result.changes.length > 0) lines.push('', '**Listing changes**', ...result.changes.map(c => `- ${plainText(c)}`))
   if (diff !== null) {
     const changes = [
       ...diff.addedPermissions.map(p => `**Added:** ${PERMISSION_TEXT[p]}`),
@@ -61,7 +66,9 @@ function section(result: CheckedListing): string {
       ...diff.addedExternal.map(key => `New external code: ${inlineCode(key)}`),
     ]
     if (changes.length > 0) lines.push('', '**Changes since the reviewed version**', ...changes.map(c => `- ${c}`))
-    if (diff.needsReview) lines.push('', '🔒 This needs a maintainer to add the `permissions-approved` label before it can merge.')
+  }
+  if (diff?.needsReview || result.sourceChanged) {
+    lines.push('', '🔒 This needs a maintainer to approve the pull request on its latest commit before it can merge.')
   }
   return lines.join('\n')
 }

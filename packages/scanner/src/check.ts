@@ -13,6 +13,7 @@ export type CheckDeps = {
   baseScanOf: (slug: string) => Promise<ScanResult | null>
   baseListingOf: (slug: string) => Promise<Listing | null>
   licenseOf: (repo: string) => Promise<string | null>
+  validateEntry: (listing: Listing, scan: ScanResult) => Promise<string[]>
 }
 
 export type CheckSummary = { failed: boolean; needsReview: boolean }
@@ -26,6 +27,41 @@ export function changedSlugsOf(changedFiles: readonly string[]): string[] {
     if (slug) slugs.add(slug)
   }
   return [...slugs].sort()
+}
+
+const LISTING_PATH = /^registry\/(listings|media)\//
+const PUBLISHED_PATH = /^(registry\/generated\/|\.claude-plugin\/)/
+const isPlaceholder = (file: string) => file.endsWith('/.gitkeep')
+
+/** A listing PR may only touch listings and media; nothing may hand-edit what publish writes. */
+export function scopeErrors(changedFiles: readonly string[]): string[] {
+  const errors: string[] = []
+  const published = changedFiles.filter(file => PUBLISHED_PATH.test(file))
+  if (published.length > 0) {
+    errors.push(`scope: registry/generated and .claude-plugin are written by publish; remove ${published.join(', ')} from this pull request`)
+  }
+  const listings = changedFiles.filter(file => LISTING_PATH.test(file) && !isPlaceholder(file))
+  const others = changedFiles.filter(file => !LISTING_PATH.test(file) && !PUBLISHED_PATH.test(file))
+  if (listings.length > 0 && others.length > 0) {
+    errors.push(`scope: a listing pull request may only change registry/listings and registry/media (it also changes ${others.join(', ')})`)
+  }
+  return errors
+}
+
+const sourceLabel = (source: ListingSource) => (source.type === 'git-subdir' ? `${source.repo}/${source.path}` : source.repo)
+
+function listingChanges(before: Listing | null, after: Listing): { changes: string[]; sourceChanged: boolean } {
+  if (before === null) return { changes: [], sourceChanged: false }
+  const changes: string[] = []
+  const sourceChanged = sourceLabel(before.source) !== sourceLabel(after.source)
+  if (sourceChanged) changes.push(`Source changed from ${sourceLabel(before.source)} to ${sourceLabel(after.source)}`)
+  const people = (list: readonly string[]) => list.join(', ')
+  if (people(before.maintainers) !== people(after.maintainers)) {
+    changes.push(`Maintainers changed from ${people(before.maintainers)} to ${people(after.maintainers)}`)
+  }
+  const authors = (listing: Listing) => people(listing.authors.map(a => a.github))
+  if (authors(before) !== authors(after)) changes.push(`Authors changed from ${authors(before)} to ${authors(after)}`)
+  return { changes, sourceChanged }
 }
 
 const sameSource = (a: ListingSource, b: ListingSource) =>
@@ -55,7 +91,7 @@ function licenseError(listing: Listing, repoLicense: string | null, scan: ScanRe
 
 async function checkOne(root: string, slug: string, deps: CheckDeps, removedSources: Map<string, ListingSource>): Promise<CheckedListing> {
   const file = `registry/listings/${slug}.yaml`
-  const result: CheckedListing = { slug, file, removed: false, errors: [], warnings: [], scan: null, diff: null }
+  const result: CheckedListing = { slug, file, removed: false, errors: [], warnings: [], scan: null, diff: null, changes: [], sourceChanged: false }
   const text = await readFile(join(root, file), 'utf8').catch(() => null)
   if (text === null) return { ...result, removed: true }
 
@@ -72,6 +108,7 @@ async function checkOne(root: string, slug: string, deps: CheckDeps, removedSour
     }
   }
 
+  Object.assign(result, listingChanges(await deps.baseListingOf(slug), listing))
   result.errors.push(...(await mediaErrors(root, listing)))
   const fetched = await deps.fetch(listing.source)
   if (!fetched.ok) return { ...result, errors: [...result.errors, fetched.error] }
@@ -79,6 +116,7 @@ async function checkOne(root: string, slug: string, deps: CheckDeps, removedSour
   const scan = await deps.scan(fetched.dir, slug, listing.source.sha)
   result.scan = scan
   if (!scan.validator.success) result.errors.push(...scan.validator.errors.map(error => `claude plugin validate: ${error}`))
+  else result.errors.push(...(await deps.validateEntry(listing, scan)).map(error => `marketplace: ${error}`))
   for (const url of scan.external.remoteBundles) {
     result.errors.push(`mcpServers: the remote bundle ${url} isn't pinned to the listing's commit; ship the bundle in the repository instead`)
   }
@@ -115,6 +153,8 @@ export async function checkListings(root: string, changedSlugs: readonly string[
         warnings: [],
         scan: null,
         diff: null,
+        changes: [],
+        sourceChanged: false,
       })
     }
   }
@@ -124,6 +164,6 @@ export async function checkListings(root: string, changedSlugs: readonly string[
 export function summarize(results: readonly CheckedListing[]): CheckSummary {
   return {
     failed: results.some(r => r.errors.length > 0),
-    needsReview: results.some(r => r.diff?.needsReview === true),
+    needsReview: results.some(r => r.diff?.needsReview === true || r.sourceChanged),
   }
 }

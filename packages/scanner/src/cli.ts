@@ -7,6 +7,7 @@ import { parseListing, ScanResultSchema, type ScanResult } from '@claudemodz/sch
 
 import { changedSlugsOf, checkListings, summarize } from './check'
 import { renderComment } from './comment'
+import { validateEntries } from './market-validate'
 import { run } from './proc'
 import { publishRegistry } from './publish'
 import { scanPlugin } from './scan'
@@ -60,6 +61,7 @@ async function check(base: string, out: string): Promise<number> {
       return parsed?.ok ? parsed.listing : null
     },
     licenseOf,
+    validateEntry: async (listing, scan) => (await validateEntries([{ listing, scan }])).get(listing.slug) ?? [],
   })
   const summary = summarize(results)
   await mkdir(out, { recursive: true })
