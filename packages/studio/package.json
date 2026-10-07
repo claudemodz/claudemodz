@@ -1,0 +1,10 @@
+{
+  "name": "@claudemodz/studio",
+  "private": true,
+  "type": "module",
+  "exports": "./src/config.ts",
+  "dependencies": {
+    "fflate": "0.8.3",
+    "zod": "^4.6.5"
+  }
+}
