@@ -1,0 +1,128 @@
+import { test, expect } from 'claude-code/testing'
+function textOf(t: any): string {
+  return typeof t === 'string' || typeof t === 'number'
+    ? String(t)
+    : Array.isArray(t)
+      ? t.map(textOf).join('')
+      : t && typeof t === 'object'
+        ? String(t.props?.label || '') + textOf(t.children)
+        : ''
+}
+const SESSION = { surface: 'terminal' as const, isInteractive: true, cwd: '/tmp' }
+const BAND = {
+  component: 'AbovePrompt' as const,
+  surface: 'terminal' as const,
+  requestId: 'above-prompt',
+  viewport: { columns: 100, rows: 40 },
+  props: {
+    hasSurvey: false,
+    isWorking: false,
+    maxRows: 20,
+    bodyColumns: 100,
+    scroll: { offset: 0, bodyRows: 20 },
+    view: {},
+  },
+}
+const cmd = (args: string) => ({
+  command: 'mission-control',
+  args,
+  origin: { kind: 'composer' as const },
+  presentation: { isFullscreen: false, columns: 100 },
+})
+function setup(on: any) {
+  on('session.start', ($: any, e: any) => ({ cwd: e.cwd }))
+  on('session.end', ($: any, e: any) => ({ sessionId: e.sessionId }))
+  on('command.register', ($: any, e: any) => ({ value: { command: e.name } }))
+  on('command.run', () => ({ text: 'unhandled' }))
+  on('turn.start', ($: any, e: any) => ({ turnId: e.turnId }))
+  on('turn.complete', ($: any, e: any) => ({ text: e.answer }))
+  on('session.measure', ($: any, e: any) => ({ changed: e.changed }))
+  on('ui.render', ($: any, e: any) => $.ui.resolve(e).Text({ children: 'existing-content' }))
+}
+const complete = (turnId: string, reason: 'answer' | 'error' | 'aborted' = 'answer') => ({
+  turnId,
+  reason,
+  answer: 'done',
+  durationMs: 1,
+  isAborted: reason === 'aborted',
+})
+
+test('all templates draw on terminal and desktop, preserve existing content, and start without sample data', async ($, on) => {
+  setup(on)
+  await $.session.start(SESSION)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...BAND, surface, plugin: 'mission-control' })
+    const text = textOf(await ui.drawn())
+    expect(text).toContain('existing-content')
+    expect(text).toContain('Ready when you are')
+    expect(text).toContain('Awaiting measurement')
+    expect(text).toContain('Review the diff')
+    await ui.press({ key: 'checklist-0' })
+    expect((await $.command.run(cmd('status'))).text).toContain('[x] Review the diff')
+    await $.command.run(cmd('reset'))
+    await ui.unmount()
+  }
+})
+test('context is measured from actual events and resets after missing measurement', async ($, on) => {
+  setup(on)
+  await $.session.start(SESSION)
+  await $.session.measure({
+    context: { window: 200000, percent: 63, tokens: 126000 },
+    rateLimits: [],
+    cost: { usd: 2.3 },
+    changed: ['context', 'cost'],
+  })
+  expect(textOf(await $.ui.render(BAND))).toContain('63% context used')
+  await $.session.measure({ context: { window: 200000 }, rateLimits: [], changed: ['context'] })
+  expect(textOf(await $.ui.render(BAND))).toContain('Awaiting measurement')
+})
+test('checklist commands toggle, reset and reject invalid indexes', async ($, on) => {
+  setup(on)
+  await $.session.start(SESSION)
+  expect((await $.command.run(cmd('check 1'))).text).toContain('[x] Review the diff')
+  expect((await $.command.run(cmd('check 999'))).text).toContain('No checklist item')
+  expect((await $.command.run(cmd('reset'))).text).toContain('[ ] Review the diff')
+})
+test('turn lifecycle ignores stale completions and distinguishes interrupted turns', async ($, on) => {
+  setup(on)
+  await $.session.start(SESSION)
+  await $.turn.start({ text: '', turnId: 'old' })
+  await $.turn.start({ text: '', turnId: 'new' })
+  await $.turn.complete(complete('old'))
+  expect((await $.command.run(cmd('status'))).text).toContain('0 turns completed')
+  await $.turn.complete(complete('new', 'aborted'))
+  expect((await $.command.run(cmd('status'))).text).toContain('Interrupted')
+  await $.turn.start({ text: '', turnId: 'next' })
+  await $.turn.complete(complete('next'))
+  expect((await $.command.run(cmd('status'))).text).toContain('1 turn completed')
+})
+test('hide and show preserve the underlying band', async ($, on) => {
+  setup(on)
+  await $.session.start(SESSION)
+  await $.command.run(cmd('hide'))
+  expect(textOf(await $.ui.render(BAND))).toBe('existing-content')
+  await $.command.run(cmd('show'))
+  expect(textOf(await $.ui.render(BAND))).toContain('Session')
+})
+test('survey, agent view, tiny and headless layouts yield to the host', async ($, on) => {
+  setup(on)
+  await $.session.start(SESSION)
+  for (const props of [
+    { ...BAND.props, hasSurvey: true },
+    { ...BAND.props, bodyColumns: 10 },
+    { ...BAND.props, maxRows: 0 },
+    { ...BAND.props, maxRows: 1 },
+    { ...BAND.props, view: { agentId: 'other' } },
+  ])
+    expect(textOf(await $.ui.render({ ...BAND, props }))).toBe('existing-content')
+  await $.session.start({ ...SESSION, isInteractive: false, surface: null })
+  expect(textOf(await $.ui.render(BAND))).toBe('existing-content')
+})
+test('narrow layout gives a compact summary while commands remain useful', async ($, on) => {
+  setup(on)
+  await $.session.start(SESSION)
+  const text = textOf(await $.ui.render({ ...BAND, props: { ...BAND.props, bodyColumns: 40, maxRows: 2 } }))
+  expect(text).toContain('Session: Ready')
+  expect(text).not.toContain('Review the diff')
+  expect((await $.command.run(cmd('status'))).text).toContain('Review the diff')
+})

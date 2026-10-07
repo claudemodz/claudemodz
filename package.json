@@ -7,7 +7,11 @@
     "typecheck": "tsc -p .",
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm test",
-    "scanner": "tsx packages/scanner/src/cli.ts"
+    "scanner": "tsx packages/scanner/src/cli.ts",
+    "dev": "pnpm --filter @claudemodz/studio-app dev",
+    "build": "pnpm --filter @claudemodz/studio-app build",
+    "test:studio:native": "tsx scripts/test-studio-native.ts",
+    "export:example": "tsx scripts/test-studio-native.ts --export"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

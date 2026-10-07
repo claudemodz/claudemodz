@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "lib": ["ES2023", "DOM", "DOM.Iterable"], "types": ["vite/client"], "jsx": "react-jsx" },
+  "include": [
+    "src",
+    "../../packages/studio/src/config.ts",
+    "../../packages/studio/src/share.ts",
+    "../../packages/studio/src/export.ts"
+  ]
+}

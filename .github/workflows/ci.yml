@@ -20,3 +20,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
         if: success() || failure()
+      - run: pnpm build
+        if: success() || failure()
+      - run: pnpm test:studio:native
+        if: success() || failure()
