@@ -2,7 +2,7 @@
 
 **Build a Claude Code workspace. Preview it. Share a remix. Keep the source.**
 
-Studio is a visual builder for small Claude Code mods. Pick a starter, customize your session status, context meter and checklist, then download a complete plugin. The editor runs in your browser with no account, API key or backend.
+Studio is a visual builder for small Claude Code mods. Pick a starter, customize status, context, checklists, notes, budgets, tokens and timing, then download a complete plugin. The editor runs in your browser with no account, API key or backend.
 
 ![ClaudeModz Studio editor with a live simulated workspace](docs/images/studio.jpg)
 
@@ -22,7 +22,7 @@ pnpm dev
 
 Open **http://127.0.0.1:5173**.
 
-1. Start with **Mission control**, **Deep focus**, or **Ship something**.
+1. Start with **Mission control**, **Deep focus**, **Ship something**, or **Session insights**.
 2. Add and reorder widgets. Change labels, colors, density and checklist items.
 3. Try sample session states, then choose **Export mod → Download plugin**.
 4. Extract the ZIP. From its parent folder, launch:
@@ -35,13 +35,13 @@ Use your exported folder name if you renamed the workspace. Keep the folder and 
 
 ## Made to remix
 
-- **Useful building blocks:** session state and completed turns, measured context usage and optional reported cost, clickable checklists with slash commands.
+- **Useful building blocks:** session state and completed turns, measured context usage and optional reported cost, clickable checklists with slash commands, pinned reminders, advisory budget targets, context token counts and turn durations.
 - **Try before you export:** ready, working, finished and error scenarios; compact previews; browse every exported file.
 - **Portable by default:** plugin ZIP, editable project JSON, and remix links with the configuration in the URL fragment.
 - **Local editing:** automatic browser saves and undo. No analytics, model calls, remote fonts or project uploads.
 - **Inspectable exports:** no model calls, shell commands, file access or network requests in the generated hooks.
 
-A shared link includes your labels and checklist text. Review those before sharing. Localhost links only work on the machine running Studio; use JSON between machines until you host the static app. Session activity and checklist completion are not included in exports or links.
+A shared link includes your labels, notes, budget target and checklist text. Review those before sharing. Localhost links only work on the machine running Studio; use JSON between machines until you host the static app. Session activity and checklist completion are not included in exports or links.
 
 ## Develop
 

@@ -7,6 +7,11 @@ export function initialState(project) {
     completed: 0,
     percent: null,
     cost: null,
+    tokens: null,
+    contextWindow: null,
+    lastDurationMs: null,
+    totalDurationMs: 0,
+    timedTurns: 0,
     hidden: false,
     checked: Object.fromEntries(
       project.widgets.filter((w) => w.kind === 'checklist').map((w) => [w.id, w.items.map(() => false)]),
@@ -17,11 +22,15 @@ export function reduceEvent(state, event) {
   if (event.type === 'start') return { ...state, turnId: event.turnId, phase: 'working' }
   if (event.type === 'complete') {
     if (state.turnId !== event.turnId) return state
+    const duration = Number.isFinite(event.durationMs) && event.durationMs >= 0 ? event.durationMs : null
     return {
       ...state,
       turnId: null,
       phase: event.reason === 'answer' ? 'finished' : event.reason === 'aborted' ? 'interrupted' : 'error',
       completed: state.completed + (event.reason === 'answer' ? 1 : 0),
+      lastDurationMs: duration,
+      totalDurationMs: state.totalDurationMs + (duration ?? 0),
+      timedTurns: state.timedTurns + (duration === null ? 0 : 1),
     }
   }
   if (event.type === 'measure')
@@ -30,6 +39,8 @@ export function reduceEvent(state, event) {
       percent:
         Number.isFinite(event.percent) && event.percent >= 0 && event.percent <= 100 ? Math.round(event.percent) : null,
       cost: Number.isFinite(event.cost) && event.cost >= 0 ? event.cost : null,
+      tokens: Number.isSafeInteger(event.tokens) && event.tokens >= 0 ? event.tokens : null,
+      contextWindow: Number.isSafeInteger(event.window) && event.window > 0 ? event.window : null,
     }
   return state
 }
@@ -41,6 +52,39 @@ export function toggleItem(state, id, index) {
 export function rowsFor(project, state, working = false) {
   return project.widgets.map((widget) => {
     const base = { id: widget.id, title: widget.title, color: COLORS[widget.accent], kind: widget.kind, lines: [] }
+    if (widget.kind === 'note') return { ...base, lines: [widget.text] }
+    if (widget.kind === 'budget') {
+      if (!Number.isFinite(widget.targetUsd) || widget.targetUsd < 0.01)
+        return { ...base, lines: ['Set a budget target', 'Enter a positive amount in USD'] }
+      if (state.cost === null)
+        return { ...base, lines: ['Cost unavailable', `$${widget.targetUsd.toFixed(2)} target · advisory only`] }
+      const delta = widget.targetUsd - state.cost
+      return {
+        ...base,
+        lines: [
+          `$${state.cost.toFixed(2)} of $${widget.targetUsd.toFixed(2)}`,
+          `$${Math.abs(delta).toFixed(2)} ${delta < 0 ? 'over target' : 'remaining'} · advisory only`,
+        ],
+      }
+    }
+    if (widget.kind === 'tokens')
+      return {
+        ...base,
+        lines: [
+          state.tokens === null ? 'Awaiting measurement' : `${formatCount(state.tokens)} tokens in context`,
+          state.contextWindow === null ? 'Window size unavailable' : `${formatCount(state.contextWindow)} token window`,
+        ],
+      }
+    if (widget.kind === 'timing')
+      return {
+        ...base,
+        lines: [
+          state.lastDurationMs === null ? 'No turn timed yet' : `Last turn: ${formatDuration(state.lastDurationMs)}`,
+          state.timedTurns === 0
+            ? 'Updates when a turn ends'
+            : `${state.timedTurns} timed ${state.timedTurns === 1 ? 'turn' : 'turns'} · ${formatDuration(state.totalDurationMs)} total`,
+        ],
+      }
     if (widget.kind === 'status') {
       const phase = working ? 'working' : state.phase
       const labels = {
@@ -79,6 +123,15 @@ export function rowsFor(project, state, working = false) {
       ],
     }
   })
+}
+
+function formatCount(value) {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+function formatDuration(ms) {
+  if (ms < 1000) return `${Math.floor(ms)}ms`
+  if (ms < 60000) return `${(Math.floor(ms / 100) / 10).toFixed(1)}s`
+  return `${Math.floor(ms / 60000)}m ${Math.floor(ms / 1000) % 60}s`
 }
 
 export function meterFor(percent) {

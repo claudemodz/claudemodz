@@ -22,11 +22,17 @@ try {
     const report = JSON.parse(result.stdout)
     if (report.success !== true) throw Error('Validation failed: ' + result.stdout)
     console.log(`Validated ${preset.name}`)
-    if (preset.id === 'mission') {
+    if (preset.id === 'mission' || preset.id === 'insights') {
       await mkdir(join(dir, 'tests'))
       await writeFile(
         join(dir, 'tests', 'studio.test.ts'),
-        await readFile(new URL('../packages/studio/test/native.fixture.txt', import.meta.url), 'utf8'),
+        await readFile(
+          new URL(
+            `../packages/studio/test/${preset.id === 'insights' ? 'native-widgets' : 'native'}.fixture.txt`,
+            import.meta.url,
+          ),
+          'utf8',
+        ),
       )
       const test = await run('claude', ['plugin', 'test', dir], { env: { ...process.env, CLAUDE_CONFIG_DIR: profile } })
       process.stdout.write(test.stdout)

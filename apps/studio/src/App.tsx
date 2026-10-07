@@ -20,11 +20,23 @@ import { loadProject, STORAGE_KEY } from './storage'
 import { Preview, type Scenario } from './Preview'
 import { Icon } from './icons'
 
-const KIND_LABELS = { status: 'Session status', context: 'Context meter', checklist: 'Checklist' }
+const KIND_LABELS: Record<Widget['kind'], string> = {
+  status: 'Session status',
+  context: 'Context meter',
+  checklist: 'Checklist',
+  note: 'Pinned note',
+  budget: 'Session budget',
+  tokens: 'Token usage',
+  timing: 'Turn timing',
+}
 const KIND_NOTES = {
   status: 'Know when a turn is working or finished.',
   context: 'Keep an eye on your context window.',
   checklist: 'Keep the little things from slipping.',
+  note: 'Keep a goal or reminder in view.',
+  budget: 'Compare reported cost with your target.',
+  tokens: 'See the actual context token count.',
+  timing: 'See how long your turns took.',
 }
 const download = (name: string, data: BlobPart, type: string) => {
   const url = URL.createObjectURL(new Blob([data], { type }))
@@ -71,7 +83,11 @@ export function App() {
       ? 'Widget label'
       : issue?.path.includes('name')
         ? 'Workspace name'
-        : 'Workspace'
+        : issue?.path.includes('text')
+          ? 'Pinned note'
+          : issue?.path.includes('targetUsd')
+            ? 'Budget target'
+            : 'Workspace'
   const files = useMemo(() => (valid.success ? pluginFiles(valid.data, runtimeSource, registerSource) : {}), [valid])
   const widget = project.widgets.find((w) => w.id === selected) || project.widgets[0]!
   const update = (next: Project) => {
@@ -278,7 +294,13 @@ export function App() {
                   <span>
                     <b>{preset.name}</b>
                     <small>
-                      {i === 0 ? 'A bit of everything' : i === 1 ? 'Less, but better' : 'The finishing touches'}
+                      {i === 0
+                        ? 'A bit of everything'
+                        : i === 1
+                          ? 'Less, but better'
+                          : i === 2
+                            ? 'The finishing touches'
+                            : 'Costs, tokens & time'}
                     </small>
                   </span>
                   <Icon name="arrow" size={14} />
@@ -322,7 +344,7 @@ export function App() {
                 Add a widget<span>{project.widgets.length === 6 ? 'Full' : ''}</span>
               </summary>
               <div>
-                {(['status', 'context', 'checklist'] as const).map((kind) => (
+                {(Object.keys(KIND_LABELS) as Widget['kind'][]).map((kind) => (
                   <button onClick={() => add(kind)} disabled={project.widgets.length >= 6} key={kind}>
                     <Icon name={kind} />
                     <span>
@@ -519,6 +541,54 @@ export function App() {
                 </p>
               </div>
             )}
+            {widget.kind === 'note' && (
+              <label className="field">
+                Your reminder
+                <input
+                  maxLength={160}
+                  value={widget.text}
+                  onChange={(e) => changeWidget({ ...widget, text: e.target.value })}
+                />
+                <small>One line, up to 160 characters. Included in shared links and exports.</small>
+              </label>
+            )}
+            {widget.kind === 'budget' && (
+              <>
+                <label className="field">
+                  Budget target (USD)
+                  <input
+                    type="number"
+                    min="0.01"
+                    max="10000"
+                    step="0.01"
+                    value={Number.isFinite(widget.targetUsd) ? widget.targetUsd : ''}
+                    onChange={(e) => changeWidget({ ...widget, targetUsd: e.target.valueAsNumber })}
+                  />
+                </label>
+                <div className="tip">
+                  <span className="tip-label">A REMINDER, NOT A LIMIT</span>
+                  <p>Uses the cost Claude reports. This does not stop a turn or enforce a spending cap.</p>
+                </div>
+              </>
+            )}
+            {widget.kind === 'tokens' && (
+              <div className="tip">
+                <span className="tip-label">MEASURED CONTEXT</span>
+                <p>
+                  Shows tokens in the current context and the model’s window size. It is not a cumulative or billed
+                  token total.
+                </p>
+              </div>
+            )}
+            {widget.kind === 'timing' && (
+              <div className="tip">
+                <span className="tip-label">AFTER EACH TURN</span>
+                <p>
+                  Shows the last turn’s duration and total time across observed turns, including interruptions. Resets
+                  with the session.
+                </p>
+              </div>
+            )}
             <div className="property-separator" />
             <div className="section-label">The whole workspace</div>
             <label className="field">
@@ -660,9 +730,9 @@ export function App() {
               <h2 id="dialog-title">Let someone make it theirs.</h2>
               <p>This link opens a copy of your workspace that anyone can remix. No account or upload needed.</p>
               <div className="dialog-note">
-                The link includes your widget labels and checklist text. Review them before sharing. Studio does not
-                read your Claude conversations or credentials. A localhost link only works where this app is running;
-                use project JSON to share between machines.
+                The link includes your widget labels, notes, budget target and checklist text. Review them before
+                sharing. Studio does not read your Claude conversations or credentials. A localhost link only works
+                where this app is running; use project JSON to share between machines.
               </div>
               <label className="field">
                 Remix link
@@ -695,8 +765,8 @@ export function App() {
                 <li>
                   <b>Choose your building blocks.</b>
                   <p>
-                    Start with a preset, then add a status indicator, context meter, or checklist. Reorder them to fit
-                    how you work.
+                    Start with a preset, then choose from seven widgets, including notes, budgets and turn timing.
+                    Reorder them to fit how you work.
                   </p>
                 </li>
                 <li>

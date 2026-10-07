@@ -1,6 +1,22 @@
 # Studio guide
 
-Studio creates a single plugin with an above-prompt workspace. It currently supports three widget types, up to six widgets, five accent colors, a roomy or compact layout, and up to six items per checklist.
+Studio creates a single plugin with an above-prompt workspace. It currently supports seven widget types, up to six widgets, five accent colors, a roomy or compact layout, and up to six items per checklist.
+
+## Widgets
+
+| Widget | What it shows |
+| --- | --- |
+| Session status | Current turn state and completed turns |
+| Context meter | Measured context usage, with optional reported cost |
+| Checklist | Session-local interactive task completion |
+| Pinned note | A one-line goal or reminder, up to 160 characters |
+| Session budget | Reported session cost against a target you choose; advisory only |
+| Token usage | Tokens in the current context and the model's context window |
+| Turn timing | Last observed turn duration and accumulated duration of timed turns |
+
+Try **Session insights** to see the four newer widgets together. All seven types support labels, colors, ordering, export and remix. Older saved configurations continue to load.
+
+Budget targets do not enforce a spending limit or predict your bill. Token counts describe the current context, not cumulative billed usage. Timing updates when a main turn ends, includes interruptions and errors, and resets with the session; it is not a running stopwatch. Missing measurements remain unknown. Long notes truncate in the native interface; the workspace slash command shows the full text.
 
 ## Compatibility
 
@@ -42,7 +58,7 @@ Official background: [Claude Code mods](https://code.claude.com/docs/en/plugins/
 
 Changes save in this browser on this origin. Renaming the workspace changes its export folder and slash-command name. Undo keeps the last 30 edits in the current page; a reload does not retain undo history. Save project JSON for a durable portable backup.
 
-**Share** puts a validated project in the URL fragment. Studio does not send that fragment to an application backend. Anyone with the link can decode its labels and checklist text; it is not encrypted. Do not put private text in a public remix. The link is consumed when loaded so later edits survive a refresh. Your previously saved project is available through Undo immediately after opening a remix.
+**Share** puts a validated project in the URL fragment. Studio does not send that fragment to an application backend. Anyone with the link can decode its labels, notes, budget target and checklist text; it is not encrypted. Do not put private text in a public remix. The link is consumed when loaded so later edits survive a refresh. Your previously saved project is available through Undo immediately after opening a remix.
 
 Localhost links work only where Studio runs at that address. For another machine, send project JSON or host the static app at a stable URL. Changing a hosted path or origin changes where browser saves live.
 

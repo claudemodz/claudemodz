@@ -2148,3 +2148,42 @@ footer {
     font-size: 8px;
   }
 }
+
+/* Additional widgets share the native runtime's display rows. */
+.widget-reading-value {
+  color: var(--widget-accent);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.widget-reading.note .widget-reading-value {
+  color: inherit;
+  font-size: 12px;
+}
+.field small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+.art-3 {
+  background: #333023;
+}
+.art-3 i {
+  width: 70%;
+  height: 4px;
+  background: #baa6ed;
+}
+.art-3 i:nth-child(2) {
+  width: 48%;
+  background: #efac77;
+}
+.art-3 i:nth-child(3) {
+  width: 60%;
+  background: #94dbba;
+}
+@media (max-width: 600px) {
+  .preset-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

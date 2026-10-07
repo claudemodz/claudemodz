@@ -6,13 +6,18 @@ export type State = {
   completed: number
   percent: number | null
   cost: number | null
+  tokens: number | null
+  contextWindow: number | null
+  lastDurationMs: number | null
+  totalDurationMs: number
+  timedTurns: number
   hidden: boolean
   checked: Record<string, boolean[]>
 }
 export type Event =
   | { type: 'start'; turnId: string }
-  | { type: 'complete'; turnId: string; reason: string }
-  | { type: 'measure'; percent?: number; cost?: number }
+  | { type: 'complete'; turnId: string; reason: string; durationMs?: number }
+  | { type: 'measure'; percent?: number; cost?: number; tokens?: number; window?: number }
 export type Row = { id: string; title: string; color: string; kind: Widget['kind']; lines: string[] }
 export function initialState(project: Project): State
 export function reduceEvent(state: State, event: Event): State

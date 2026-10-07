@@ -44,6 +44,29 @@ export function Icon({ name, size = 18, style }: { name: string; size?: number; 
         <path d="m3 6 2 2 3-4m-5 9 2 2 3-4M11 6h10M11 13h10M11 20h10" />
       </>
     ),
+    note: (
+      <>
+        <path d="M5 3h14v13l-5 5H5zM14 21v-5h5M8 8h8M8 12h6" />
+      </>
+    ),
+    budget: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M15 8h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9M12 5v14" />
+      </>
+    ),
+    tokens: (
+      <>
+        <rect x="5" y="5" width="14" height="14" rx="2" />
+        <path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
+      </>
+    ),
+    timing: (
+      <>
+        <circle cx="12" cy="13" r="8" />
+        <path d="M12 9v4l3 2M9 2h6M12 2v3M18 6l2-2" />
+      </>
+    ),
     undo: <path d="M3 10h11a6 6 0 0 1 0 12M3 10l6-6M3 10l6 6" />,
     link: (
       <>

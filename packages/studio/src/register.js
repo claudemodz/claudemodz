@@ -33,12 +33,18 @@ export function register(on) {
     return next(e)
   })
   on('turn.complete', ($, e, next) => {
-    state = reduceEvent(state, { type: 'complete', turnId: e.turnId, reason: e.reason })
+    state = reduceEvent(state, { type: 'complete', turnId: e.turnId, reason: e.reason, durationMs: e.durationMs })
     refresh($)
     return next(e)
   })
   on('session.measure', ($, e, next) => {
-    state = reduceEvent(state, { type: 'measure', percent: e.context.percent, cost: e.cost?.usd })
+    state = reduceEvent(state, {
+      type: 'measure',
+      percent: e.context.percent,
+      cost: e.cost?.usd,
+      tokens: e.context.tokens,
+      window: e.context.window,
+    })
     refresh($)
     return next(e)
   })

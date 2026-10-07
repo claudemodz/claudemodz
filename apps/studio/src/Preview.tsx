@@ -12,13 +12,14 @@ export type Scenario = 'ready' | 'working' | 'finished' | 'error'
 export function scenarioState(project: Project, scenario: Scenario): State {
   let state = initialState(project)
   if (scenario !== 'ready') {
-    state = reduceEvent(state, { type: 'measure', percent: 42, cost: 0.18 })
+    state = reduceEvent(state, { type: 'measure', percent: 42, cost: 0.18, tokens: 84000, window: 200000 })
     state = reduceEvent(state, { type: 'start', turnId: 'preview' })
     if (scenario !== 'working')
       state = reduceEvent(state, {
         type: 'complete',
         turnId: 'preview',
         reason: scenario === 'finished' ? 'answer' : 'error',
+        durationMs: 12500,
       })
   }
   return state
@@ -177,7 +178,14 @@ export function Preview({
                       ))}
                     </div>
                   ) : (
-                    <span className="compact-check">{row.lines[0]}</span>
+                    <div className={`widget-reading ${row.kind}`}>
+                      <div className="widget-reading-value">{row.lines[0]}</div>
+                      {row.lines.slice(1).map((line, i) => (
+                        <p className="widget-detail" key={i}>
+                          {line}
+                        </p>
+                      ))}
+                    </div>
                   )}
                 </section>
               )

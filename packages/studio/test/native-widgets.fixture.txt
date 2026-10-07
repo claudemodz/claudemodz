@@ -1,0 +1,84 @@
+import { test, expect } from 'claude-code/testing'
+function textOf(t: any): string {
+  return typeof t === 'string' || typeof t === 'number'
+    ? String(t)
+    : Array.isArray(t)
+      ? t.map(textOf).join('')
+      : t && typeof t === 'object'
+        ? String(t.props?.label || '') + textOf(t.children)
+        : ''
+}
+const session = { surface: 'terminal' as const, isInteractive: true, cwd: '/tmp' }
+const band = {
+  component: 'AbovePrompt' as const,
+  surface: 'terminal' as const,
+  requestId: 'insights',
+  viewport: { columns: 100, rows: 40 },
+  props: {
+    hasSurvey: false,
+    isWorking: false,
+    maxRows: 20,
+    bodyColumns: 100,
+    scroll: { offset: 0, bodyRows: 20 },
+    view: {},
+  },
+}
+const command = {
+  command: 'session-insights',
+  args: 'status',
+  origin: { kind: 'composer' as const },
+  presentation: { isFullscreen: false, columns: 100 },
+}
+function setup(on: any) {
+  on('session.start', ($: any, e: any) => ({ cwd: e.cwd }))
+  on('command.register', ($: any, e: any) => ({ value: { command: e.name } }))
+  on('command.run', () => ({ text: 'unhandled' }))
+  on('session.measure', ($: any, e: any) => ({ changed: e.changed }))
+  on('turn.start', ($: any, e: any) => ({ turnId: e.turnId }))
+  on('turn.complete', ($: any, e: any) => ({ text: e.answer }))
+  on('ui.render', ($: any, e: any) => $.ui.resolve(e).Text({ children: 'existing-content' }))
+}
+test('new widgets render on terminal and desktop without invented measurements', async ($, on) => {
+  setup(on)
+  await $.session.start(session)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const text = textOf(await $.ui.render({ ...band, surface }))
+    expect(text).toContain('Ship the smallest useful change.')
+    expect(text).toContain('Cost unavailable')
+    expect(text).toContain('Awaiting measurement')
+    expect(text).toContain('No turn timed yet')
+    expect(text).toContain('existing-content')
+  }
+})
+test('real measurements and turn duration reach both UI and commands, then reset', async ($, on) => {
+  setup(on)
+  await $.session.start(session)
+  await $.session.measure({
+    context: { window: 200000, tokens: 84000, percent: 42 },
+    cost: { usd: 6.25 },
+    rateLimits: [],
+    changed: ['context', 'cost'],
+  })
+  await $.turn.start({ text: '', turnId: 'main' })
+  await $.turn.complete({ turnId: 'main', reason: 'answer', answer: '', durationMs: 12500, isAborted: false })
+  const summary = (await $.command.run(command)).text
+  expect(summary).toContain('$1.25 over target · advisory only')
+  expect(summary).toContain('84,000 tokens in context')
+  expect(summary).toContain('200,000 token window')
+  expect(summary).toContain('Last turn: 12.5s')
+  expect(textOf(await $.ui.render(band))).toContain('1 timed turn · 12.5s total')
+  await $.session.measure({ context: { window: 200000 }, rateLimits: [], changed: ['context', 'cost'] })
+  const missing = (await $.command.run(command)).text
+  expect(missing).toContain('Cost unavailable')
+  expect(missing).toContain('Awaiting measurement')
+  await $.session.start(session)
+  expect((await $.command.run(command)).text).toContain('No turn timed yet')
+})
+test('new widgets respect narrow and exhausted row budgets', async ($, on) => {
+  setup(on)
+  await $.session.start(session)
+  const narrow = textOf(await $.ui.render({ ...band, props: { ...band.props, bodyColumns: 40, maxRows: 2 } }))
+  expect(narrow).toContain('Session budget: Cost unavailable')
+  expect(narrow).not.toContain('advisory only')
+  expect(textOf(await $.ui.render({ ...band, props: { ...band.props, maxRows: 1 } }))).toBe('existing-content')
+})

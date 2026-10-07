@@ -15,6 +15,14 @@ const common = {
 export const WidgetSchema = z.discriminatedUnion('kind', [
   z.strictObject({ ...common, kind: z.literal('status') }),
   z.strictObject({ ...common, kind: z.literal('context'), showCost: z.boolean().default(false) }),
+  z.strictObject({ ...common, kind: z.literal('note'), text: text(160) }),
+  z.strictObject({
+    ...common,
+    kind: z.literal('budget'),
+    targetUsd: z.number().min(0.01, 'Set a target of at least $0.01.').max(10000, 'Use a target of $10,000 or less.'),
+  }),
+  z.strictObject({ ...common, kind: z.literal('tokens') }),
+  z.strictObject({ ...common, kind: z.literal('timing') }),
   z.strictObject({
     ...common,
     kind: z.literal('checklist'),
@@ -65,6 +73,11 @@ export function slugify(name: string): string {
   )
 }
 export function makeWidget(kind: Widget['kind'], id: string): Widget {
+  if (kind === 'note')
+    return { id, kind, title: 'Keep in mind', accent: 'sky', text: 'Ship the smallest useful change.' }
+  if (kind === 'budget') return { id, kind, title: 'Session budget', accent: 'amber', targetUsd: 5 }
+  if (kind === 'tokens') return { id, kind, title: 'Token usage', accent: 'violet' }
+  if (kind === 'timing') return { id, kind, title: 'Turn timing', accent: 'mint' }
   if (kind === 'context') return { id, kind, title: 'Context', accent: 'amber', showCost: false }
   if (kind === 'checklist')
     return {
@@ -115,6 +128,23 @@ export const PRESETS: { id: string; name: string; description: string; project: 
       slug: 'ship-something',
       density: 'comfortable',
       widgets: [{ ...makeWidget('checklist', 'checklist'), title: 'Ready to ship?', accent: 'amber' }],
+    }),
+  },
+  {
+    id: 'insights',
+    name: 'Session insights',
+    description: 'Costs, tokens and time, with a reminder of the goal.',
+    project: parseProject({
+      version: 1,
+      name: 'Session insights',
+      slug: 'session-insights',
+      density: 'comfortable',
+      widgets: [
+        makeWidget('note', 'note'),
+        makeWidget('budget', 'budget'),
+        makeWidget('tokens', 'tokens'),
+        makeWidget('timing', 'timing'),
+      ],
     }),
   },
 ]
